@@ -36,7 +36,7 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
   # Check for and create random seed if NULL
   if (is.null(seed)) {seed <- sample.int(100000, size = 1)}
   
-  
+
   # Function to perform a single bootstrap resample and run seminr::estimate_pls
   bootstrap_sample <- function(i, data, measurement_model, structural_model, inner_weights, original_model, original_cross_loadings) {
     set.seed(seed + i)
@@ -55,17 +55,47 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
       return(list(data = resampled_data, boot_path_coef = NA, boot_outer_loadings = NA, boot_outer_weights = NA, boot_rSquared = NA))
     }
     
+    
+    boot_HTMT <- HTMT(boot_model)
+    boot_total_effects <- total_effects(boot_model$path_coef)
     path_coef <- boot_model$path_coef
     outer_loadings <- boot_model$outer_loadings
     outer_weights <- boot_model$outer_weights
     rSquared <- boot_model$rSquared
-
+    scores <- boot_model$construct_scores
+    boot_cross_loadings <- cor(resampled_data, scores)
     
-    return(list(boot_data = resampled_data,
-                boot_path_coef = path_coef,
-                boot_outer_loadings = outer_loadings,
-                boot_outer_weights = outer_weights,
-                boot_rSquared = rSquared))
+    # Sign change: benchmark on the original sample for the sign
+    
+    sc_path_coef <- boot_sign_change(path_coef, original_model$path_coef)
+    sc_outer_loadings <- boot_sign_change(outer_loadings, original_model$outer_loadings)
+    sc_outer_weights <- boot_sign_change(outer_weights, original_model$outer_weights)
+    sc_cross_loadings <- boot_sign_change(boot_cross_loadings, original_cross_loadings)
+    
+        # Store the bootstrap index that is flipping, if it doesn't flip, return 0
+    if (any(sc_path_coef != path_coef)) {
+      sc_index <- i
+    } else {
+      sc_index <- 0
+    }
+
+    # Create an object to be returned
+    boot_object <- list(boot_data = resampled_data,
+                        boot_path_coef = path_coef,
+                        boot_outer_loadings = outer_loadings,
+                        boot_outer_weights = outer_weights,
+                        boot_rSquared = rSquared,
+                        boot_construct_scores = scores,
+                        boot_total_effects = boot_total_effects,
+                        boot_HTMT = boot_HTMT,
+                        boot_cross_loadings = cross_loadings,
+                        sc_path_coef = sc_path_coef,
+                        sc_outer_loadings = sc_outer_loadings,
+                        sc_outer_weights = sc_outer_weights,
+                        sc_cross_loadings = sc_cross_loadings,
+                        sc_index = sc_index)
+    
+    return(boot_object)
   }
   
   # Export necessary variables and functions to the cluster
@@ -73,30 +103,38 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
                                           "measurement_model",
                                           "structural_model",
                                           "inner_weights",
-                                          "bootstrap_sample"))
+                                          "bootstrap_sample",
+                                          "convert_to_table_output",
+                                          "HTMT",
+                                          "total_effects",
+                                          "seminr_model",
+                                          "cross_loadings",
+                                          "boot_sign_change"), envir = environment())
   
   # Perform bootstrap in parallel
-  bootstrap_results <- parLapply(cl, 1:nboot, bootstrap_sample, data, measurement_model, structural_model, inner_weights)
+  bootstrap_results <- parallel::parLapply(cl, 1:nboot, bootstrap_sample, data, measurement_model, structural_model, inner_weights, seminr_model, cross_loadings)
   
   # Stop the cluster
   parallel::stopCluster(cl)
   
   # Separate the raw data and model estimates
-  boot_raw_data <- lapply(bootstrap_results, function(res) res$boot_data)
-  boot_path_coef <- lapply(bootstrap_results, function(res) res$boot_path_coef)
-  boot_outer_loadings <- lapply(bootstrap_results, function(res) res$boot_outer_loadings)
-  boot_outer_weights <- lapply(bootstrap_results, function(res) res$boot_outer_weights)
-  boot_rSquared <- lapply(bootstrap_results, function(res) res$boot_rSquared)
-
-  return(list(boot_raw_data = boot_raw_data,
-              boot_path_coef = boot_path_coef,
-              boot_outer_loadings = boot_outer_loadings,
-              boot_outer_weights = boot_outer_weights,
-              boot_rSquared = boot_rSquared))
+  seminr_model$boot_raw_data <- lapply(bootstrap_results, function(res) res$boot_data)
+  seminr_model$boot_path_coef <- lapply(bootstrap_results, function(res) res$boot_path_coef)
+  seminr_model$boot_outer_loadings <- lapply(bootstrap_results, function(res) res$boot_outer_loadings)
+  seminr_model$boot_outer_weights <- lapply(bootstrap_results, function(res) res$boot_outer_weights)
+  seminr_model$boot_rSquared <- lapply(bootstrap_results, function(res) res$boot_rSquared)
+  seminr_model$boot_construct_scores <- lapply(bootstrap_results, function(res) res$boot_construct_scores)
+  seminr_model$boot_HTMT <- lapply(bootstrap_results, function(res) res$boot_HTMT)
+  seminr_model$boot_total_effects <- lapply(bootstrap_results, function(res) res$boot_HTMT)
+  seminr_model$boot_cross_loadings <- lapply(bootstrap_results, function(res) res$boot_cross_loadings)
+  seminr_model$sc_path_coef <- lapply(bootstrap_results, function(res) res$sc_path_coef)
+  seminr_model$sc_outer_loadings <- lapply(bootstrap_results, function(res) res$sc_outer_loadings)
+  seminr_model$sc_outer_weights <- lapply(bootstrap_results, function(res) res$sc_outer_weights)
+  seminr_model$sc_cross_loadings <- lapply(bootstrap_results, function(res) res$sc_cross_loadings)
+  seminr_model$sc_index <- lapply(bootstrap_results, function(res) res$sc_index)
+  
+  class(seminr_model) <- c("boot_seminr_model_full")
+  message("SEMinR Model successfully bootstrapped")
+  
+  return(seminr_model)
 }
-
-library(parallel)
-library(seminr)
-
-boot_test <- bootstrap_model_full(pls_model_clc1, nboot = 10)
-pls_model_clc1$inner_weights
