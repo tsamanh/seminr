@@ -16,56 +16,6 @@
 #' @param ... A list of parameters passed on to the estimation method.
 #'
 #' @export
-total_effects <- function(path_coef) {
-  output <- path_coef
-  paths <- path_coef
-  while (sum(paths) > 0) {
-    paths <- paths %*% path_coef
-    output <- output + paths
-  }
-  return(output)
-}
-
-convert_to_table_output <- function(matrix) {
-  class(matrix) <- append(class(matrix), "table_output")
-  return(matrix)
-}
-
-
-HTMT <- function(seminr_model) {
-  if (is.null(seminr_model$hoc)) {
-    constructs <- intersect(unique(seminr_model$smMatrix),unique(seminr_model$mmMatrix[,1 ]))
-  } else {
-    constructs <- intersect(unique(c(seminr_model$smMatrix, seminr_model$first_stage_model$smMatrix)),unique(seminr_model$mmMatrix[,1 ]))
-  }
-  
-  HTMT <- matrix(, nrow=length(constructs), ncol=length(constructs),
-                 dimnames = list(constructs,constructs))
-  for (constructi in constructs[1:(length(constructs)-1)]) {
-    for (constructj in constructs[(which(constructs == constructi)+1):length(constructs)]) {
-      manifesti <- seminr_model$mmMatrix[seminr_model$mmMatrix[, 1] == constructi, "measurement"]
-      manifestj <- seminr_model$mmMatrix[seminr_model$mmMatrix[, 1] == constructj, "measurement"]
-      item_correlation_matrix <- abs(stats::cor(seminr_model$data[, manifesti],seminr_model$data[, manifestj]))
-      HTHM <- mean(item_correlation_matrix)
-      if(length(manifesti)>1 ) {
-        cor_matrix <- abs(stats::cor(seminr_model$data[, manifesti], seminr_model$data[, manifesti]))
-        diag(cor_matrix) <- 0
-        MTHM <- (2/(length(manifesti)*(length(manifesti)-1)))*(sum(cor_matrix[!lower.tri(cor_matrix)]))
-      } else {
-        MTHM <- 1
-      }
-      if(length(manifestj)>1) {
-        cor_matrix2 <- abs(stats::cor(seminr_model$data[, manifestj], seminr_model$data[, manifestj]))
-        diag(cor_matrix2) <- 0
-        MTHM <- sqrt(MTHM * (2/(length(manifestj)*(length(manifestj)-1)))*(sum(cor_matrix2[!lower.tri(cor_matrix2)])))
-      } else {
-        MTHM <- sqrt(1 * MTHM)
-      }
-      HTMT[constructi, constructj] <- HTHM / MTHM
-    }
-  }
-  convert_to_table_output(HTMT)
-}
 
 bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed = NULL, ...) {
   
@@ -81,12 +31,14 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
   maxIt <- seminr_model$settings$maxIt
   stopCriterion <- seminr_model$settings$stopCriterion
   missing <- seminr_model$settings$missing
+  cross_loadings <- cor(data, seminr_model$construct_scores)
   
   # Check for and create random seed if NULL
   if (is.null(seed)) {seed <- sample.int(100000, size = 1)}
   
+  
   # Function to perform a single bootstrap resample and run seminr::estimate_pls
-  bootstrap_sample <- function(i, data, measurement_model, structural_model, inner_weights) {
+  bootstrap_sample <- function(i, data, measurement_model, structural_model, inner_weights, original_model, original_cross_loadings) {
     set.seed(seed + i)
     resampled_data <- data[sample(1:nrow(data), replace = TRUE), ]
     boot_model <- tryCatch({
