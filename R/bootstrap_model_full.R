@@ -71,13 +71,23 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
     sc_outer_loadings <- boot_sign_change(outer_loadings, original_model$outer_loadings)
     sc_outer_weights <- boot_sign_change(outer_weights, original_model$outer_weights)
     sc_cross_loadings <- boot_sign_change(boot_cross_loadings, original_cross_loadings)
+    sc_construct_scores <- scores
     
-        # Store the bootstrap index that is flipping, if it doesn't flip, return 0
+    # Store the bootstrap index that is flipping, if it doesn't flip, return 0
     if (any(sc_path_coef != path_coef)) {
       sc_index <- i
     } else {
       sc_index <- 0
     }
+    
+    #Construct-level sign change: compare sum of the sums vs difference of the sums
+    cl_change <- boot_construct_level_change(boot_model, original_model)
+    cl_path_coef <- cl_change$cl_boot_path_coef
+    cl_outer_loadings <- cl_change$cl_boot_outer_loadings
+    cl_outer_weights <- cl_change$cl_boot_outer_weights
+    cl_construct_scores <- cl_change$cl_boot_construct_scores
+    cl_cross_loadings <- cl_change$cl_boot_cross_loadings
+    cl_index <- cl_change$cl_change
 
     # Create an object to be returned
     boot_object <- list(boot_data = resampled_data,
@@ -93,7 +103,14 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
                         sc_outer_loadings = sc_outer_loadings,
                         sc_outer_weights = sc_outer_weights,
                         sc_cross_loadings = sc_cross_loadings,
-                        sc_index = sc_index)
+                        sc_construct_scores = sc_construct_scores,
+                        sc_index = sc_index,
+                        cl_path_coef = cl_path_coef,
+                        cl_outer_loadings = cl_outer_loadings,
+                        cl_outer_weights = cl_outer_weights,
+                        cl_cross_loadings = cl_cross_loadings,
+                        cl_construct_scores = cl_construct_scores,
+                        cl_index = cl_index)
     
     return(boot_object)
   }
@@ -109,7 +126,8 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
                                           "total_effects",
                                           "seminr_model",
                                           "cross_loadings",
-                                          "boot_sign_change"), envir = environment())
+                                          "boot_sign_change",
+                                          "boot_construct_level_change"), envir = environment())
   
   # Perform bootstrap in parallel
   bootstrap_results <- parallel::parLapply(cl, 1:nboot, bootstrap_sample, data, measurement_model, structural_model, inner_weights, seminr_model, cross_loadings)
@@ -131,7 +149,15 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
   seminr_model$sc_outer_loadings <- lapply(bootstrap_results, function(res) res$sc_outer_loadings)
   seminr_model$sc_outer_weights <- lapply(bootstrap_results, function(res) res$sc_outer_weights)
   seminr_model$sc_cross_loadings <- lapply(bootstrap_results, function(res) res$sc_cross_loadings)
+  seminr_model$sc_construct_scores <- lapply(bootstrap_results, function(res) res$sc_construct_scores)
   seminr_model$sc_index <- lapply(bootstrap_results, function(res) res$sc_index)
+  seminr_model$cl_path_coef <- lapply(bootstrap_results, function(res) res$cl_path_coef)
+  seminr_model$cl_outer_loadings <- lapply(bootstrap_results, function(res) res$cl_outer_loadings)
+  seminr_model$cl_outer_weights <- lapply(bootstrap_results, function(res) res$cl_outer_weights)
+  seminr_model$cl_cross_loadings <- lapply(bootstrap_results, function(res) res$cl_cross_loadings)
+  seminr_model$cl_construct_scores <- lapply(bootstrap_results, function(res) res$cl_construct_scores)
+  seminr_model$cl_index <- lapply(bootstrap_results, function(res) res$cl_index)
+  
   
   class(seminr_model) <- c("boot_seminr_model_full")
   message("SEMinR Model successfully bootstrapped")
