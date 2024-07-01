@@ -80,7 +80,7 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
       sc_index <- 0
     }
     
-    #Construct-level sign change: compare sum of the sums vs difference of the sums
+    # Construct-level sign change: compare sum of the sums vs difference of the sums
     cl_change <- boot_construct_level_change(boot_model, original_model)
     cl_path_coef <- cl_change$cl_boot_path_coef
     cl_outer_loadings <- cl_change$cl_boot_outer_loadings
@@ -88,6 +88,15 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
     cl_construct_scores <- cl_change$cl_boot_construct_scores
     cl_cross_loadings <- cl_change$cl_boot_cross_loadings
     cl_index <- cl_change$cl_change
+    
+    # Dominant indicator sign change: keep the sign of the highest loadings item
+    di_change <- boot_dominant_indicator(boot_model, original_model)
+    di_path_coef <- di_change$di_path_coef
+    di_outer_loadings <- di_change$di_outer_loadings
+    di_outer_weights <- di_change$di_outer_weights
+    di_construct_scores <- di_change$di_construct_scores
+    di_cross_loadings <- di_change$di_cross_loadings
+    di_index <- di_change$di_change
 
     # Create an object to be returned
     boot_object <- list(boot_data = resampled_data,
@@ -110,7 +119,13 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
                         cl_outer_weights = cl_outer_weights,
                         cl_cross_loadings = cl_cross_loadings,
                         cl_construct_scores = cl_construct_scores,
-                        cl_index = cl_index)
+                        cl_index = cl_index,
+                        di_path_coef = di_path_coef,
+                        di_outer_loadings = di_outer_loadings,
+                        di_outer_weights = di_outer_weights,
+                        di_construct_scores = di_construct_scores,
+                        di_cross_loadings = di_cross_loadings,
+                        di_index = di_index)
     
     return(boot_object)
   }
@@ -127,7 +142,8 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
                                           "seminr_model",
                                           "cross_loadings",
                                           "boot_sign_change",
-                                          "boot_construct_level_change"), envir = environment())
+                                          "boot_construct_level_change",
+                                          "boot_dominant_indicator"), envir = environment())
   
   # Perform bootstrap in parallel
   bootstrap_results <- parallel::parLapply(cl, 1:nboot, bootstrap_sample, data, measurement_model, structural_model, inner_weights, seminr_model, cross_loadings)
@@ -135,7 +151,7 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
   # Stop the cluster
   parallel::stopCluster(cl)
   
-  # Separate the raw data and model estimates
+  # Export the bootstrapped data
   seminr_model$boot_raw_data <- lapply(bootstrap_results, function(res) res$boot_data)
   seminr_model$boot_path_coef <- lapply(bootstrap_results, function(res) res$boot_path_coef)
   seminr_model$boot_outer_loadings <- lapply(bootstrap_results, function(res) res$boot_outer_loadings)
@@ -145,12 +161,16 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
   seminr_model$boot_HTMT <- lapply(bootstrap_results, function(res) res$boot_HTMT)
   seminr_model$boot_total_effects <- lapply(bootstrap_results, function(res) res$boot_HTMT)
   seminr_model$boot_cross_loadings <- lapply(bootstrap_results, function(res) res$boot_cross_loadings)
+  
+  # Export the sign change data
   seminr_model$sc_path_coef <- lapply(bootstrap_results, function(res) res$sc_path_coef)
   seminr_model$sc_outer_loadings <- lapply(bootstrap_results, function(res) res$sc_outer_loadings)
   seminr_model$sc_outer_weights <- lapply(bootstrap_results, function(res) res$sc_outer_weights)
   seminr_model$sc_cross_loadings <- lapply(bootstrap_results, function(res) res$sc_cross_loadings)
   seminr_model$sc_construct_scores <- lapply(bootstrap_results, function(res) res$sc_construct_scores)
   seminr_model$sc_index <- lapply(bootstrap_results, function(res) res$sc_index)
+  
+  # Export the construct-level sign change  data
   seminr_model$cl_path_coef <- lapply(bootstrap_results, function(res) res$cl_path_coef)
   seminr_model$cl_outer_loadings <- lapply(bootstrap_results, function(res) res$cl_outer_loadings)
   seminr_model$cl_outer_weights <- lapply(bootstrap_results, function(res) res$cl_outer_weights)
@@ -158,9 +178,18 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
   seminr_model$cl_construct_scores <- lapply(bootstrap_results, function(res) res$cl_construct_scores)
   seminr_model$cl_index <- lapply(bootstrap_results, function(res) res$cl_index)
   
+  # Export the dominant indicator sign change data
+  seminr_model$di_path_coef <- lapply(bootstrap_results, function(res) res$di_path_coef)
+  seminr_model$di_outer_loadings <- lapply(bootstrap_results, function(res) res$di_outer_loadings)
+  seminr_model$di_outer_weights <- lapply(bootstrap_results, function(res) res$di_outer_weights)
+  seminr_model$di_cross_loadings <- lapply(bootstrap_results, function(res) res$di_cross_loadings)
+  seminr_model$di_construct_scores <- lapply(bootstrap_results, function(res) res$di_construct_scores)
+  seminr_model$di_index <- lapply(bootstrap_results, function(res) res$di_index)
+  
   
   class(seminr_model) <- c("boot_seminr_model_full")
   message("SEMinR Model successfully bootstrapped")
   
   return(seminr_model)
 }
+
