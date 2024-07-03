@@ -65,6 +65,8 @@
 #'                                      nboot = 50, cores = 2, seed = NULL)
 #'
 #' summary(boot_seminr_model)
+#' 
+#' hello world
 #' @export
 bootstrap_model <- function(seminr_model, nboot = 500, cores = NULL, seed = NULL, ...) {
   out <- tryCatch(

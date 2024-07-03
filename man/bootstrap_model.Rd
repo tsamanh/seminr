@@ -66,6 +66,8 @@ boot_seminr_model <- bootstrap_model(seminr_model = seminr_model,
                                      nboot = 50, cores = 2, seed = NULL)
 
 summary(boot_seminr_model)
+
+hello world
 }
 \references{
 Hair, J. F., Hult, G. T. M., Ringle, C. M., and Sarstedt, M. (2017). A Primer on Partial Least Squares
