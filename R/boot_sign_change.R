@@ -34,7 +34,7 @@ boot_construct_level_change <- function(boot_model, original_model) {
   for (i in 1:length(flag))  {
     if (flag[i]) {
       cl_boot_outer_weights[,i] <- cl_boot_outer_weights[,i] * (-1)
-      cl_boot_outer_loadings[,i] <- cl_boot__outer_loadings[,i] * (-1)
+      cl_boot_outer_loadings[,i] <- cl_boot_outer_loadings[,i] * (-1)
       cl_boot_construct_scores[,i] <- cl_boot_construct_scores[,i] * (-1)
     }
   }
