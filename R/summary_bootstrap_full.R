@@ -46,22 +46,22 @@ summary.boot_seminr_model_full <- function (boot_object, alpha = 0.05, ...) {
   weights_summary <- parse_boot_array(boot_object$outer_weights, flat_weights, alpha = alpha)
   loadings_summary <- parse_boot_array(boot_object$outer_loadings, flat_loadings, alpha = alpha)
   HTMT_summary <- parse_boot_array(HTMT(boot_object), flat_HTMT, alpha = alpha)
-  cross_loadings_summary <- parse_boot_array(cor(boot_object$rawdata, boot_object$construct_scores), flat_cross_loadings, alpha = alpha)
+  cross_loadings_summary <- parse_boot_array(cor(boot_object$data, boot_object$construct_scores), flat_cross_loadings, alpha = alpha)
   
   sc_path_summary <- parse_boot_array(boot_object$path_coef, flat_sc_path, alpha = alpha)
   sc_weights_summary <- parse_boot_array(boot_object$outer_weights, flat_sc_weights, alpha = alpha) 
   sc_loadings_summary <- parse_boot_array(boot_object$outer_loadings, flat_sc_loadings, alpha = alpha)
-  sc_cross_loadings_summary <- parse_boot_array(cor(boot_object$rawdata, boot_object$construct_scores), flat_sc_cross_loadings, alpha = alpha)
+  sc_cross_loadings_summary <- parse_boot_array(cor(boot_object$data, boot_object$construct_scores), flat_sc_cross_loadings, alpha = alpha)
   
   cl_path_summary <- parse_boot_array(boot_object$path_coef, flat_cl_path, alpha = alpha)
   cl_weights_summary <- parse_boot_array(boot_object$outer_weights, flat_cl_weights, alpha = alpha)
   cl_loadings_summary <- parse_boot_array(boot_object$outer_loadings, flat_cl_loadings, alpha = alpha)
-  cl_cross_loadings_summary <- parse_boot_array(cor(boot_object$rawdata, boot_object$construct_scores), flat_cl_cross_loadings, alpha = alpha)
+  cl_cross_loadings_summary <- parse_boot_array(cor(boot_object$data, boot_object$construct_scores), flat_cl_cross_loadings, alpha = alpha)
   
   di_path_summary <- parse_boot_array(boot_object$path_coef, flat_di_path, alpha = alpha)
   di_weights_summary <- parse_boot_array(boot_object$outer_weights, flat_di_weights, alpha = alpha)
   di_loadings_summary <- parse_boot_array(boot_object$outer_loadings, flat_di_loadings, alpha = alpha)
-  di_cross_loadings_summary <- parse_boot_array(cor(boot_object$rawdata, boot_object$construct_scores), flat_di_cross_loadings, alpha = alpha)
+  di_cross_loadings_summary <- parse_boot_array(cor(boot_object$data, boot_object$construct_scores), flat_di_cross_loadings, alpha = alpha)
   
   boot_summary_object <- list(nboot = boot_object$boots,
                               boot_path_summary = path_summary,
