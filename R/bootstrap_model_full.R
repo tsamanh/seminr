@@ -23,7 +23,7 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
   suppressWarnings(ifelse(is.null(cores), cl <- parallel::makeCluster(parallel::detectCores(), setup_strategy = "sequential"), cl <- parallel::makeCluster(cores, setup_strategy = "sequential")))
   
   # prepare parameters for cluster export (model parameters)
-  data <- seminr_model$rawdata
+  data <- seminr_model$data
   measurement_model <- seminr_model$measurement_model
   structural_model <- seminr_model$smMatrix
   inner_weights <- seminr_model$inner_weights
