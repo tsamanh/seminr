@@ -16,7 +16,6 @@
 #' @param ... A list of parameters passed on to the estimation method.
 #'
 #' @export
-
 bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed = NULL, ...) {
   
   # Create a cluster for parallel computing
@@ -74,7 +73,7 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
     sc_construct_scores <- scores
     
     # Store the bootstrap index that is flipping, if it doesn't flip, return 0
-    if (any(sc_path_coef != path_coef)) {
+    if (any(sc_outer_loadings != outer_loadings)) {
       sc_index <- i
     } else {
       sc_index <- 0
@@ -88,6 +87,7 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
     cl_construct_scores <- cl_change$cl_boot_construct_scores
     cl_cross_loadings <- cl_change$cl_boot_cross_loadings
     cl_index <- cl_change$cl_change
+    cl_flip_constructs <- cl_change$cl_flip_constructs
     
     # Dominant indicator sign change: keep the sign of the highest loadings item
     di_change <- boot_dominant_indicator(boot_model, original_model)
@@ -97,6 +97,19 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
     di_construct_scores <- di_change$di_construct_scores
     di_cross_loadings <- di_change$di_cross_loadings
     di_index <- di_change$di_change
+    di_flip_constructs <- di_change$di_flip_constructs
+    
+    # Construct scores correction: use the original weights * bootstrapped data to compare with the bootstrapped scores
+    csc_change <- boot_construct_score_correction(boot_model, original_model)
+    csc_path_coef <- csc_change$csc_path_coef
+    csc_outer_weights <- csc_change$csc_outer_weights
+    csc_outer_loadings <- csc_change$csc_outer_loadings
+    csc_construct_scores <- csc_change$csc_construct_scores
+    csc_cross_loadings <- csc_change$csc_cross_loadings
+    csc_index <- csc_change$csc_flag
+    csc_flip_constructs <- csc_change$csc_flip_constructs
+    
+  
 
     # Create an object to be returned
     boot_object <- list(boot_data = resampled_data,
@@ -119,37 +132,52 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
                         cl_outer_weights = cl_outer_weights,
                         cl_cross_loadings = cl_cross_loadings,
                         cl_construct_scores = cl_construct_scores,
+                        cl_flip_constructs = cl_flip_constructs,
                         cl_index = cl_index,
                         di_path_coef = di_path_coef,
                         di_outer_loadings = di_outer_loadings,
                         di_outer_weights = di_outer_weights,
                         di_construct_scores = di_construct_scores,
                         di_cross_loadings = di_cross_loadings,
-                        di_index = di_index)
+                        di_index = di_index,
+                        di_flip_constructs = di_flip_constructs,
+                        csc_path_coef = csc_path_coef,
+                        csc_outer_weights = csc_outer_weights,
+                        csc_outer_loadings = csc_outer_loadings,
+                        csc_construct_scores = csc_construct_scores,
+                        csc_cross_loadings = csc_cross_loadings,
+                        csc_index = csc_index,
+                        csc_flip_constructs = csc_flip_constructs)
     
     return(boot_object)
   }
   
   # Export necessary variables and functions to the cluster
-  parallel::clusterExport(cl, varlist = c("data",
-                                          "measurement_model",
-                                          "structural_model",
-                                          "inner_weights",
-                                          "bootstrap_sample",
-                                          "convert_to_table_output",
-                                          "HTMT",
-                                          "total_effects",
-                                          "seminr_model",
-                                          "cross_loadings",
-                                          "boot_sign_change",
-                                          "boot_construct_level_change",
-                                          "boot_dominant_indicator"), envir = environment())
+  tryCatch({
+    parallel::clusterExport(cl, varlist = c("data",
+                                            "measurement_model",
+                                            "structural_model",
+                                            "inner_weights",
+                                            "bootstrap_sample",
+                                            "convert_to_table_output",
+                                            "HTMT",
+                                            "total_effects",
+                                            "seminr_model",
+                                            "cross_loadings",
+                                            "boot_sign_change",
+                                            "boot_construct_level_change",
+                                            "boot_dominant_indicator",
+                                            "boot_construct_score_correction",
+                                            "seed"), envir = environment())
+    
+    # Perform bootstrap in parallel
+    bootstrap_results <- parallel::parLapply(cl, 1:nboot, bootstrap_sample, data, measurement_model, structural_model, inner_weights, seminr_model, cross_loadings)
+  }, finally = {
+    # Stop the cluster
+    parallel::stopCluster(cl)
+    
+  })
   
-  # Perform bootstrap in parallel
-  bootstrap_results <- parallel::parLapply(cl, 1:nboot, bootstrap_sample, data, measurement_model, structural_model, inner_weights, seminr_model, cross_loadings)
-  
-  # Stop the cluster
-  parallel::stopCluster(cl)
   
   # Export the bootstrapped data
   seminr_model$boot_raw_data <- lapply(bootstrap_results, function(res) res$boot_data)
@@ -177,6 +205,7 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
   seminr_model$cl_cross_loadings <- lapply(bootstrap_results, function(res) res$cl_cross_loadings)
   seminr_model$cl_construct_scores <- lapply(bootstrap_results, function(res) res$cl_construct_scores)
   seminr_model$cl_index <- lapply(bootstrap_results, function(res) res$cl_index)
+  seminr_model$cl_flip_constructs <- lapply(bootstrap_results, function(res) res$cl_flip_constructs)
   
   # Export the dominant indicator sign change data
   seminr_model$di_path_coef <- lapply(bootstrap_results, function(res) res$di_path_coef)
@@ -185,6 +214,16 @@ bootstrap_model_full <- function(seminr_model, nboot = 500, cores = NULL, seed =
   seminr_model$di_cross_loadings <- lapply(bootstrap_results, function(res) res$di_cross_loadings)
   seminr_model$di_construct_scores <- lapply(bootstrap_results, function(res) res$di_construct_scores)
   seminr_model$di_index <- lapply(bootstrap_results, function(res) res$di_index)
+  seminr_model$di_flip_constructs <- lapply(bootstrap_results, function(res) res$di_flip_constructs)
+  
+  # Export the construct scores correction sign change data
+  seminr_model$csc_path_coef <- lapply(bootstrap_results, function(res) res$csc_path_coef)
+  seminr_model$csc_outer_loadings <- lapply(bootstrap_results, function(res) res$csc_outer_loadings)
+  seminr_model$csc_outer_weights <- lapply(bootstrap_results, function(res) res$csc_outer_weights)
+  seminr_model$csc_cross_loadings <- lapply(bootstrap_results, function(res) res$csc_cross_loadings)
+  seminr_model$csc_construct_scores <- lapply(bootstrap_results, function(res) res$csc_construct_scores)
+  seminr_model$csc_index <- lapply(bootstrap_results, function(res) res$csc_index)
+  seminr_model$csc_flip_constructs <- lapply(bootstrap_results, function(res) res$csc_flip_constructs)
   
   
   class(seminr_model) <- c("boot_seminr_model_full")
