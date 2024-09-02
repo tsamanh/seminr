@@ -85,7 +85,6 @@ boot_dominant_indicator <- function(boot_model, original_model) {
   
   names(highest_loadings_list) <- construct_list
   
-  highest_loadings_list
   # Create the dominant indicator sign change objects
   di_outer_weights <- boot_model$outer_weights
   di_outer_loadings <- boot_model$outer_loadings
@@ -95,8 +94,6 @@ boot_dominant_indicator <- function(boot_model, original_model) {
   # Create a flag vector to check if a construct score flip
   flag <- rep(FALSE, length(construct_list))
   names(flag) <- construct_list
-  
-  boot_model$outer_loadings[,construct] <- boot_model$outer_loadings[,construct] * (-1)
   
   for (construct in construct_list) {
     highest_loadings_var_index <- highest_loadings_list[construct]
