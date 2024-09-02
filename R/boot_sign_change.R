@@ -85,6 +85,7 @@ boot_dominant_indicator <- function(boot_model, original_model) {
   
   names(highest_loadings_list) <- construct_list
   
+  highest_loadings_list
   # Create the dominant indicator sign change objects
   di_outer_weights <- boot_model$outer_weights
   di_outer_loadings <- boot_model$outer_loadings
@@ -95,18 +96,10 @@ boot_dominant_indicator <- function(boot_model, original_model) {
   flag <- rep(FALSE, length(construct_list))
   names(flag) <- construct_list
   
+  boot_model$outer_loadings[,construct] <- boot_model$outer_loadings[,construct] * (-1)
+  
   for (construct in construct_list) {
     highest_loadings_var_index <- highest_loadings_list[construct]
-    
-    # Compare the sign of the weights and flip if the sign is different from the original
-    original_weights <- original_model$outer_weights[,construct]
-    boot_weights <- boot_model$outer_weights[,construct]
-    
-    if(sign(original_weights[highest_loadings_var_index]) != sign(boot_weights[highest_loadings_var_index])) {
-      di_outer_weights[,construct] <- di_outer_weights[,construct] * (-1)
-      di_construct_scores[,construct] <- di_construct_scores[,construct] * (-1)
-      flag[construct] <- TRUE
-    }
     
     # Compare the sign of the loadings and flip if the sign is different from the original
     original_loadings <- original_model$outer_loadings[,construct]
@@ -114,11 +107,13 @@ boot_dominant_indicator <- function(boot_model, original_model) {
     
     if (sign(original_loadings[highest_loadings_var_index]) != sign(boot_loadings[highest_loadings_var_index])) {
       di_outer_loadings[,construct] <- di_outer_loadings[,construct] * (-1)
+      di_outer_weights[,construct] <- di_outer_weights[,construct] * (-1)
+      di_construct_scores[,construct] <- di_construct_scores[,construct] * (-1)
+      flag[construct] <- TRUE
     }
   }   
-  
-    
-  # Flip the path coef if one of the IV-DV flag is TRUE
+
+    # Flip the path coef if one of the IV-DV flag is TRUE
   for (i in 1:nrow(boot_model$structural_model)) {
     IV <- boot_model$structural_model[i,]["source"]
     DV <- boot_model$structural_model[i,]["target"]
